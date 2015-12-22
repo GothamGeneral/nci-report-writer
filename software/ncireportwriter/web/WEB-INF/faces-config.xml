@@ -61,6 +61,17 @@ L-->
       <to-view-id>/pages/main/add_standard_report_template.jsp</to-view-id>
     </navigation-case>
         
+        
+    <navigation-case>
+      <from-outcome>administer_excel_metadata</from-outcome>
+      <to-view-id>/pages/main/administer_excel_metadata.jsp</to-view-id>
+    </navigation-case>
+
+    <navigation-case>
+      <from-outcome>generate_hierarchy_report</from-outcome>
+      <to-view-id>/pages/main/generate_hierarchy_report.jsp</to-view-id>
+    </navigation-case>        
+        
     <navigation-case>
       <from-outcome>retrieve_standard_reports</from-outcome>
       <to-view-id>/pages/main/retrieve_standard_reports.jsp</to-view-id>
@@ -71,6 +82,11 @@ L-->
       <to-view-id>/pages/main/assign_report_status.jsp</to-view-id>
     </navigation-case>
 
+    <navigation-case>
+      <from-outcome>enter_excel_metadata</from-outcome>
+      <to-view-id>/pages/main/enter_excel_metadata.jsp</to-view-id>
+    </navigation-case>
+    
     <navigation-case>
       <from-outcome>message</from-outcome>
       <to-view-id>/pages/main/message.jsp</to-view-id>
@@ -84,7 +100,8 @@ L-->
     <navigation-case>
       <from-outcome>perform_unlock</from-outcome>
       <to-view-id>/pages/main/unlock.jsp</to-view-id>
-    </navigation-case>    
+    </navigation-case>  
+    
   </navigation-rule>
    
   <!-- ===================================================================== -->
@@ -131,6 +148,27 @@ L-->
     </navigation-case>
   </navigation-rule>  
 
+  <!-- ===================================================================== -->
+  <navigation-rule>
+    <from-view-id>/pages/main/enter_excel_metadata.jsp</from-view-id>
+    <navigation-case>
+      <from-action>#{userSessionBean.enterExcelMetadata}</from-action>
+      <from-outcome>success</from-outcome>
+      <to-view-id>/pages/main/task.jsp</to-view-id>
+    </navigation-case>
+
+    <navigation-case>
+      <from-action>#{userSessionBean.enterExcelMetadata}</from-action>
+      <from-outcome>failed</from-outcome>
+      <to-view-id>/pages/main/enter_excel_metadata.jsp</to-view-id>
+    </navigation-case>
+    
+    <navigation-case>
+      <from-outcome>back</from-outcome>
+      <to-view-id>/pages/main/task.jsp</to-view-id>
+    </navigation-case>
+  </navigation-rule> 
+  
   <!-- ===================================================================== -->
   <navigation-rule>
     <from-view-id>/pages/main/retrieve_standard_reports.jsp</from-view-id>

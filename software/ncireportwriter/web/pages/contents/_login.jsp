@@ -13,6 +13,8 @@ L--%>
 <%
   String pagesPath = FormUtils.getPagesPath(request);
   String loginWarning = (String)request.getAttribute("loginWarning");
+  
+  
 %>
 <f:view>
   <h:form id="loginForm">
@@ -31,6 +33,7 @@ L--%>
               width="100%" class="sidebarSection">
               <% 
                   String queryString = request.getQueryString();
+                 
                   if (queryString != null && queryString.contains("logout")) { 
                 	  loginWarning = "You have successfully logged out.";
                 %>

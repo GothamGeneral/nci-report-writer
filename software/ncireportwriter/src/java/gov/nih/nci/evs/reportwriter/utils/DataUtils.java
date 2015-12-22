@@ -1,4 +1,4 @@
-/*L
+/*
  * Copyright Northrop Grumman Information Technology.
  *
  * Distributed under the OSI-approved BSD 3-Clause License.
@@ -9,6 +9,10 @@ package gov.nih.nci.evs.reportwriter.utils;
 
 import java.io.*;
 import java.util.*;
+
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+
 
 import gov.nih.nci.evs.reportwriter.bean.*;
 
@@ -48,7 +52,7 @@ import org.LexGrid.valueSets.PropertyMatchValue;
 import org.LexGrid.LexBIG.Utility.Iterators.ResolvedConceptReferencesIterator;
 
 /**
- * 
+ *
  */
 
 /**
@@ -57,6 +61,8 @@ import org.LexGrid.LexBIG.Utility.Iterators.ResolvedConceptReferencesIterator;
  */
 
 public class DataUtils {
+	private static String[] units = new String[] { "B", "KB", "MB", "GB", "TB" };
+
     public static enum AssociationType {
         Codes, Names
     };
@@ -78,8 +84,11 @@ public class DataUtils {
 
     private static HashMap<String, HashMap> _cs2HasParentAssociationMap = null;
 
+    public static String NCIT_VERSION = null;//AppProperties.getInstance().getProperty(AppProperties.NCIT_VERSION);
+
     static {
         setCodingSchemeMap();
+        NCIT_VERSION = getVocabularyVersionByTag("NCI_Thesaurus", "PRODUCTION");
     }
 
     public static List<SelectItem> getPropertyTypeList() {
@@ -103,6 +112,8 @@ public class DataUtils {
                     .add(new SelectItem("Administer Standard Reports"));
                 _adminTaskList.add(new SelectItem("Maintain Report Status"));
                 _adminTaskList.add(new SelectItem("Assign Report Status"));
+                _adminTaskList.add(new SelectItem("Administer Excel Metadata"));
+                _adminTaskList.add(new SelectItem("Generate Hierarchy Report"));
                 _adminTaskList.add(new SelectItem("Retrieve Standard Reports"));
                 _adminTaskList.add(new SelectItem("Unlock User Account"));
             }
@@ -121,9 +132,11 @@ public class DataUtils {
             SDKClientUtil util = new SDKClientUtil();
             String FQName =
                 "gov.nih.nci.evs.reportwriter.bean.StandardReportTemplate";
+
             Object[] objs = util.search(FQName);
-            if (objs.length == 0)
+            if (objs == null || objs.length == 0) {
                 return _standardReportTemplateList;
+			}
             Vector<String> v = new Vector<String>();
             for (int i = 0; i < objs.length; i++) {
                 StandardReportTemplate standardReportTemplate =
@@ -184,6 +197,7 @@ public class DataUtils {
                         case 0:
                             try {
                                 scheme = lbSvc.resolveCodingScheme(formalName, vt);
+
                             } catch (Exception e) {
                                 _logger.warn(e.getClass().getSimpleName() + ": "
                                     + e.getMessage());
@@ -218,7 +232,8 @@ public class DataUtils {
             }
             SortUtils.quickSort(_ontologies);
         } catch (Exception e) {
-            e.printStackTrace();
+            //e.printStackTrace();
+            System.out.println("ERROR: setCodingSchemeMap throws exceptions.");
         }
     }
 
@@ -294,6 +309,8 @@ public class DataUtils {
     public static Vector<String> getSupportedAssociations(
         AssociationType associationType, String codingSchemeName, String version)
             throws Exception {
+
+		/* resolveCodingScheme
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null)
             vt.setVersion(version);
@@ -301,6 +318,8 @@ public class DataUtils {
         CodingScheme scheme = null;
         LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
         scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
+        */
+        CodingScheme scheme = resolveCodingScheme(codingSchemeName, version);
 
         Vector<String> v = new Vector<String>();
         SupportedAssociation[] assos =
@@ -326,6 +345,8 @@ public class DataUtils {
 
     public static String getAssociationCode(String codingSchemeName,
         String version, String name) throws Exception {
+
+		/* resolveCodingScheme
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null)
             vt.setVersion(version);
@@ -333,6 +354,8 @@ public class DataUtils {
         CodingScheme scheme = null;
         LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
         scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
+        */
+        CodingScheme scheme = resolveCodingScheme(codingSchemeName, version);
 
         SupportedAssociation[] assos =
             scheme.getMappings().getSupportedAssociation();
@@ -354,14 +377,21 @@ public class DataUtils {
 
     public static Vector<String> getPropertyNameListData(
         String codingSchemeName, String version) {
+		/* resolveCodingScheme
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null) {
             vt.setVersion(version);
         }
         CodingScheme scheme = null;
         try {
+
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
             scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
+*/
+        CodingScheme scheme = null;
+        try {
+            scheme = resolveCodingScheme(codingSchemeName, version);
+
             if (scheme == null)
                 return null;
             Vector<String> propertyNameListData = new Vector<String>();
@@ -379,21 +409,8 @@ public class DataUtils {
     }
 
     public static Vector<String> getRepresentationalFormListData(String key) {
-/*
-
         CSNVInfo info = _csnv2InfoMap.get(key);
         if (info == null) {
-			System.out.println("(*) getRepresentationalFormListData ..info == null???." + key);
-            return null;
-		}
-        return getRepresentationalFormListData(info.codingSchemeName,
-            info.version);
-
-*/
-
-        CSNVInfo info = _csnv2InfoMap.get(key);
-        if (info == null) {
-			System.out.println("(*) getRepresentationalFormListData ..info == null???." + key);
 			Vector<String> v = getRepresentationalFormListData(key, null);
 			return v;
 		}
@@ -406,14 +423,20 @@ public class DataUtils {
 
     public static Vector<String> getRepresentationalFormListData(
         String codingSchemeName, String version) {
+		CodingScheme scheme = null;
+		/*
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null) {
             vt.setVersion(version);
         }
-        CodingScheme scheme = null;
+
         try {
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
             scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
+            (*/
+
+        try {
+			scheme = resolveCodingScheme(codingSchemeName, version);
             if (scheme == null)
                 return null;
             Vector<String> propertyNameListData = new Vector<String>();
@@ -463,6 +486,8 @@ public class DataUtils {
 
     public static Vector<String> getPropertyQualifierListData(
         String codingSchemeName, String version) {
+		CodingScheme scheme = null;
+		/* resolveCodingScheme
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null) {
             vt.setVersion(version);
@@ -471,6 +496,11 @@ public class DataUtils {
         try {
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
             scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
+        */
+
+         try {
+            scheme = resolveCodingScheme(codingSchemeName, version);
+
             if (scheme == null)
                 return null;
             Vector<String> propertyQualifierListData = new Vector<String>();
@@ -497,6 +527,7 @@ public class DataUtils {
 
     public static Vector<String> getSourceListData(String codingSchemeName,
         String version) {
+		/*	resolveCodingScheme
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null) {
             vt.setVersion(version);
@@ -505,6 +536,10 @@ public class DataUtils {
         try {
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
             scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
+        */
+        CodingScheme scheme = null;
+        try {
+            scheme = resolveCodingScheme(codingSchemeName, version);
             if (scheme == null)
                 return null;
             Vector<String> sourceListData = new Vector<String>();
@@ -673,6 +708,7 @@ public class DataUtils {
     // =========================================================================
     public static Entity getConceptByCode(String codingSchemeName,
         String version, String tag, String code) throws Exception {
+
         LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
         if (lbSvc == null)
             throw new Exception("lbSvc == null???");
@@ -917,13 +953,19 @@ public class DataUtils {
         long ms = System.currentTimeMillis();
 
 
-        try {
+        //try {
+			/*
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
             LexBIGServiceConvenienceMethods lbscm =
                 (LexBIGServiceConvenienceMethods) lbSvc
                     .getGenericExtension("LexBIGServiceConvenienceMethods");
             lbscm.setLexBIGService(lbSvc);
             CodingScheme cs = lbSvc.resolveCodingScheme(scheme, csvt);
+            */
+        CodingScheme cs = null;
+        try {
+            cs = resolveCodingScheme(scheme, version);
+
             if (cs == null)
                 return null;
             Mappings mappings = cs.getMappings();
@@ -940,6 +982,7 @@ public class DataUtils {
                 createNameAndValueList(associationsToNavigate, null);
             ResolvedConceptReferenceList matches = null;
             try {
+				LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
                 CodedNodeGraph cng = lbSvc.getNodeGraph(scheme, csvt, null);
                 NameAndValueList nameAndValueList_qualifier = null;
                 cng =
@@ -1317,7 +1360,8 @@ public class DataUtils {
         String version) {
 
         Vector<String> association_vec = new Vector<String>();
-        try {
+        //try {
+			/* resolveCodingScheme
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
 
             // Will handle secured ontologies later.
@@ -1325,6 +1369,11 @@ public class DataUtils {
                 new CodingSchemeVersionOrTag();
             versionOrTag.setVersion(version);
             CodingScheme cs = lbSvc.resolveCodingScheme(scheme, versionOrTag);
+            */
+
+        CodingScheme cs = null;
+        try {
+            cs = resolveCodingScheme(scheme, version);
             Mappings mappings = cs.getMappings();
             SupportedHierarchy[] hierarchies = mappings.getSupportedHierarchy();
             String[] ids = hierarchies[0].getAssociationNames();
@@ -1924,6 +1973,13 @@ _logger.debug("getResolvedConceptReferenceIterator...");
     protected static CodingScheme getCodingScheme(String codingScheme,
         CodingSchemeVersionOrTag versionOrTag) throws LBException {
 
+		/*
+
+		// NCIT_VERSION
+		if (codingScheme.compareTo("NCI_Thesaurus") == 0) {
+			return getCodingScheme(codingScheme, versionOrTag);
+		}
+
         CodingScheme cs = null;
         try {
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
@@ -1931,7 +1987,10 @@ _logger.debug("getResolvedConceptReferenceIterator...");
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+
         return cs;
+        */
+        return resolveCodingScheme(codingScheme, versionOrTag.getVersion());
     }
 
     public static String codingSchemeName2URI(String codingSchemeName, String version)
@@ -1948,7 +2007,8 @@ _logger.debug("getResolvedConceptReferenceIterator...");
     public static Boolean getIsForwardNavigable(String scheme, String version) {
 
         Vector association_vec = new Vector();
-        try {
+        //try {
+			/*
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
 
             // Will handle secured ontologies later.
@@ -1956,6 +2016,11 @@ _logger.debug("getResolvedConceptReferenceIterator...");
                 new CodingSchemeVersionOrTag();
             versionOrTag.setVersion(version);
             CodingScheme cs = lbSvc.resolveCodingScheme(scheme, versionOrTag);
+            */
+        CodingScheme cs = null;
+        try {
+            cs = resolveCodingScheme(scheme, version);
+
             Mappings mappings = cs.getMappings();
             SupportedHierarchy[] hierarchies = mappings.getSupportedHierarchy();
             Boolean forwardNavigable = hierarchies[0].getIsForwardNavigable();
@@ -1971,13 +2036,18 @@ _logger.debug("getResolvedConceptReferenceIterator...");
     public static String[] getHierarchyAssociations(String scheme, String version) {
         String[] asso_array = null;
         Vector association_vec = new Vector();
-        try {
+        //try {
+			/*
             LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
             CodingSchemeVersionOrTag versionOrTag =
                 new CodingSchemeVersionOrTag();
             versionOrTag.setVersion(version);
 
             CodingScheme cs = lbSvc.resolveCodingScheme(scheme, versionOrTag);
+            */
+        CodingScheme cs = null;
+        try {
+            cs = resolveCodingScheme(scheme, version);
             Mappings mappings = cs.getMappings();
             SupportedHierarchy[] hierarchies = mappings.getSupportedHierarchy();
             for (int k=0; k<hierarchies.length; k++) {
@@ -2419,6 +2489,7 @@ _logger.debug("getResolvedConceptReferenceIterator...");
 
     public static Vector<String> getSupportedAssociations(String codingSchemeName, String version)
             throws Exception {
+		/*
         CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
         if (version != null)
             vt.setVersion(version);
@@ -2426,19 +2497,97 @@ _logger.debug("getResolvedConceptReferenceIterator...");
         CodingScheme scheme = null;
         LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
         scheme = lbSvc.resolveCodingScheme(codingSchemeName, vt);
-
-        Vector<String> v = new Vector<String>();
-        SupportedAssociation[] assos =
-            scheme.getMappings().getSupportedAssociation();
-        for (int i = 0; i < assos.length; i++) {
-            SupportedAssociation sa = (SupportedAssociation) assos[i];
-            v.add(sa.getLocalId());
-        }
-        SortUtils.quickSort(v);
-        return v;
+        */
+        CodingScheme scheme = null;
+        try {
+            scheme = resolveCodingScheme(codingSchemeName, version);
+			Vector<String> v = new Vector<String>();
+			SupportedAssociation[] assos =
+				scheme.getMappings().getSupportedAssociation();
+			for (int i = 0; i < assos.length; i++) {
+				SupportedAssociation sa = (SupportedAssociation) assos[i];
+				v.add(sa.getLocalId());
+			}
+			SortUtils.quickSort(v);
+			return v;
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return null;
     }
 
 
+//  [GF#32309] Add column to download for file size.
+	public static String getFileSize(long size) {
+		if(size < 0) return "";
+		/*
+		int digitGroups = (int) (Math.log10(size)/Math.log10(1024));
+		if (digitGroups > 4) return "";
+		try {
+			return new DecimalFormat("#,##0.#").format(size/Math.pow(1024, digitGroups)) + " " + units[digitGroups];
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		*/
+
+
+
+		return "";
+	}
+
+
+	public static String getStringSizeLengthFile(long size) {
+		DecimalFormat df = new DecimalFormat("0.00");
+		float sizeKb = 1024.0f;
+		float sizeMo = sizeKb * sizeKb;
+		float sizeGo = sizeMo * sizeKb;
+		float sizeTerra = sizeGo * sizeKb;
+		if(size < sizeMo)
+			return df.format(size / sizeKb)+ " KB";
+		else if(size < sizeGo)
+			return df.format(size / sizeMo) + " MB";
+		else if(size < sizeTerra)
+			return df.format(size / sizeGo) + " GB";
+		return "";
+	}
+
+
+
+
+	public static String getFileSize(String filename) {
+		File file = new File(filename);
+		if (!file.exists()) return "";
+		//return getFileSize(file.length());
+		return getStringSizeLengthFile(file.length());
+	}
+
+/*
+	public static String getFileExtension(String format) {
+		if (format.compareToIgnoreCase("Text (tab delimited)") == 0) return ".txt";
+		if (format.compareToIgnoreCase("Microsoft Office Excel") == 0) return ".xls";
+		if (format.compareToIgnoreCase("HyperText Markup Language") == 0) return ".htm";
+		return ".xml";
+	}
+*/
+
+    public static Vector<String> parseData(String line) {
+		if (line == null) return null;
+        String tab = "|";
+        return parseData(line, tab);
+    }
+
+    public static Vector<String> parseData(String line, String tab) {
+		if (line == null) return null;
+        Vector data_vec = new Vector();
+        StringTokenizer st = new StringTokenizer(line, tab);
+        while (st.hasMoreTokens()) {
+            String value = st.nextToken();
+            if (value.compareTo("null") == 0)
+                value = " ";
+            data_vec.add(value);
+        }
+        return data_vec;
+    }
 
     public static void main(String[] args) {
 
@@ -2492,5 +2641,110 @@ _logger.debug("getResolvedConceptReferenceIterator...");
             e.printStackTrace();
         }
     }
+
+    public static boolean isNullOrBlank(String value) {
+		if (value == null || value.compareToIgnoreCase("null") == 0 || value.compareTo("") == 0) return true;
+		return false;
+	}
+
+    public static CodingScheme resolveCodingScheme(String scheme, String version) {
+		String representsVersion = version;
+
+		if (!isNullOrBlank(NCIT_VERSION) || version.compareTo("@ncit.version@") == 0) {
+			representsVersion = NCIT_VERSION;
+		}
+
+        try {
+			LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
+			CodingSchemeVersionOrTag vt = new CodingSchemeVersionOrTag();
+			vt.setVersion(representsVersion);
+			CodingScheme cs = lbSvc.resolveCodingScheme(scheme, vt);
+			return cs;
+		} catch (Exception e) {
+			_logger.warn(e.getClass().getSimpleName() + ": "
+				+ e.getMessage());
+			_logger.warn("Possible security token needed for: ");
+			_logger.warn("  * " + scheme);
+		}
+		return null;
+	}
+
+    public CodingScheme resolveCodingScheme(String scheme, CodingSchemeVersionOrTag vt) {
+		if (!isNullOrBlank(NCIT_VERSION)) {
+			vt.setVersion(NCIT_VERSION);
+		}
+
+        try {
+			LexBIGService lbSvc = RemoteServerUtil.createLexBIGService();
+			CodingScheme cs = lbSvc.resolveCodingScheme(scheme, vt);
+			return cs;
+		} catch (Exception e) {
+			_logger.warn(e.getClass().getSimpleName() + ": "
+				+ e.getMessage());
+			_logger.warn("Possible security token needed for: ");
+			_logger.warn("  * " + scheme);
+		}
+		return null;
+	}
+
+
+    public static String getLastModified(File file) {
+		SimpleDateFormat sdf = new SimpleDateFormat("MM/dd/yyyy HH:mm:ss");
+		String lastModified = sdf.format(file.lastModified());
+		return lastModified;
+	}
+
+    public static String getFileExtension(int formatId) {
+        if (formatId == 404) return "txt";
+        else if (formatId == 405) return "xls";
+        if (formatId == 406) return "htm";
+		return "";
+	}
+
+    public static String getFileExtension(String filename) {
+		String extension = "";
+		int i = filename.lastIndexOf('.');
+		int p = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+		if (i > p) {
+			extension = filename.substring(i+1);
+		}
+		return extension;
+	}
+
+    public static String getFileFormat(String filename) {
+		String extension = "";
+		int i = filename.lastIndexOf('.');
+		int p = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+		if (i > p) {
+			extension = filename.substring(i+1);
+		}
+
+
+		if (extension.compareTo("txt") == 0) {
+			return "Text (tab delimited)";
+		} else if (extension.compareTo("xls") == 0 || extension.compareTo("xlsx") == 0) {
+			return "Microsoft Office Excel";
+		} else if (extension.compareTo("htm") == 0 || extension.compareTo("html") == 0) {
+			return "HyperText Markup Language";
+		}
+        return "";
+	}
+
+    public static Integer getFormatId(String filename) {
+		String extension = "";
+		int i = filename.lastIndexOf('.');
+		int p = Math.max(filename.lastIndexOf('/'), filename.lastIndexOf('\\'));
+		if (i > p) {
+			extension = filename.substring(i+1);
+		}
+		if (extension.compareTo("txt") == 0) {
+			return new Integer(404);
+		} else if (extension.compareTo("xls") == 0 || extension.compareTo("xlsx") == 0) {
+			return new Integer(405);
+		} else if (extension.compareTo("htm") == 0 || extension.compareTo("html") == 0) {
+			return new Integer(406);
+		}
+        return new Integer(404);
+	}
 
 }

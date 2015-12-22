@@ -11,6 +11,7 @@ import gov.nih.nci.evs.reportwriter.utils.*;
 import gov.nih.nci.evs.reportwriter.webapp.*;
 import gov.nih.nci.evs.utils.*;
 
+import java.io.*;
 import java.util.*;
 
 import javax.faces.event.*;
@@ -20,7 +21,7 @@ import javax.servlet.http.*;
 import org.apache.log4j.*;
 
 /**
- * 
+ *
  */
 
 /**
@@ -31,9 +32,9 @@ import org.apache.log4j.*;
 public class UserSessionBean extends Object {
     private static Logger _logger = Logger.getLogger(UserSessionBean.class);
     private TaskRequest _taskRequest = new TaskRequest();
-    private StandardReportTemplateManager _srtMgr = 
+    private StandardReportTemplateManager _srtMgr =
         new StandardReportTemplateManager();
-    
+
     private String _selectedPropertyType = null;
     private String _rootConceptCode = null;
     private String _selectedOntology = null;
@@ -209,12 +210,12 @@ public class UserSessionBean extends Object {
             return;
         setSelectedVersion(_selectedVersion);
     }
-    
+
     // -------------------------------------------------------------------------
     public StandardReportTemplate getStandardReportTemplate(String label) {
         return _srtMgr.getStandardReportTemplate(label);
     }
-    
+
     public List<SelectItem> getStandardReportTemplateList() {
         return _srtMgr.getStandardReportTemplateList();
     }
@@ -237,11 +238,11 @@ public class UserSessionBean extends Object {
         _srtMgr.setSelectedStandardReportTemplate_draft(
             selectedStandardReportTemplate_draft);
     }
-    
+
     public List<SelectItem> getStandardReportTemplateList_draft() {
         return _srtMgr.getStandardReportTemplateList_draft();
     }
-    
+
     public String getSelectedStandardReportTemplate_approved() {
         return _srtMgr.getSelectedStandardReportTemplate_approved();
     }
@@ -255,12 +256,12 @@ public class UserSessionBean extends Object {
     public List<SelectItem> getStandardReportTemplateList_approved() {
         return _srtMgr.getStandardReportTemplateList_approved();
     }
-    
+
     // -------------------------------------------------------------------------
     public String performTask() {
         return _taskRequest.performAction();
     }
-    
+
     public String getSelectedTask() {
         return _taskRequest.getSelectedTask();
     }
@@ -272,11 +273,11 @@ public class UserSessionBean extends Object {
     public void changeTaskSelection(ValueChangeEvent vce) {
         _taskRequest.changeTaskSelection(vce);
     }
-    
+
     public List<SelectItem> getTaskList() {
         return _taskRequest.getTaskList();
     }
-    
+
     // -------------------------------------------------------------------------
     public String addReportTemplateAction() {
         return new ReportTemplateRequest().addAction();
@@ -293,7 +294,7 @@ public class UserSessionBean extends Object {
     public String saveModifiedTemplateAction() {
         return new ReportTemplateRequest().saveModifiedAction();
     }
-    
+
     public String selectGenerateReportOptionAction() {
         return "selectGenerateReportOption";
     }
@@ -332,7 +333,7 @@ public class UserSessionBean extends Object {
         return new ReportColumnRequest()
             .saveModifiedAction(_srtMgr.getSelected());
     }
-    
+
     // -------------------------------------------------------------------------
     public String editReportContentAction() {
         return new ReportContentRequest()
@@ -343,7 +344,7 @@ public class UserSessionBean extends Object {
         return new ReportContentRequest()
             .generateAction(_srtMgr.getSelected());
     }
-    
+
     public String displayStandardReportTemplateAction() {
         return "standard_report_template";
     }
@@ -352,7 +353,7 @@ public class UserSessionBean extends Object {
     public String addStatusAction() {
     	return new ReportStatusRequest().addAction();
     }
-    
+
     public String activateStatusAction () {
         return new ReportStatusRequest().activateAction();
     }
@@ -364,18 +365,18 @@ public class UserSessionBean extends Object {
     public String assignStatusAction() {
     	return new ReportStatusRequest().assignAction();
     }
-    
+
     public String saveStatusAction() { // Might not be called.
         return new ReportStatusRequest().
             saveAction(_srtMgr.getSelected());
     }
-    
+
     // -------------------------------------------------------------------------
     public String downloadReportAction() {
         return new ReportDownloadRequest()
             .downloadReportAction(_srtMgr.getSelected());
     }
-    
+
     // -------------------------------------------------------------------------
     public String submitAccessDenied() {
         return new AccessDeniedRequest().submit();
@@ -400,4 +401,77 @@ public class UserSessionBean extends Object {
     public String clearUnlockAccount() {
         return new UserAccountRequest().clear();
     }
+
+    public String enterExcelMetadata() {
+        String selectedStandardReportTemplate = _srtMgr.getSelected();
+        System.out.println("selectedStandardReportTemplate: " + selectedStandardReportTemplate);
+        HttpServletRequest request = HTTPUtils.getRequest();
+        String author = request.getParameter("author");
+        System.out.println("author: " + author);
+        String keywords = request.getParameter("keywords");
+        System.out.println("keywords: " + keywords);
+        String title = request.getParameter("title");
+        System.out.println("title: " + title);
+        String subject = request.getParameter("subject");
+        System.out.println("subject: " + subject);
+        String worksheet = request.getParameter("worksheet");
+        worksheet = worksheet.trim();
+        System.out.println("worksheet: " + worksheet);
+        String frozen_rows = request.getParameter("frozen_rows");
+        System.out.println("frozen_rows: " + frozen_rows);
+        frozen_rows = frozen_rows.trim();
+
+		title = title.trim();
+		if (title == null || title.length() == 0) {
+			title = selectedStandardReportTemplate;
+		}
+
+        request.getSession().setAttribute("author", author);
+        request.getSession().setAttribute("keywords", keywords);
+        request.getSession().setAttribute("title", title);
+        request.getSession().setAttribute("subject", subject);
+        request.getSession().setAttribute("worksheet", worksheet);
+        request.getSession().setAttribute("frozen_rows", frozen_rows);
+
+        String format_description = "Microsoft Office Excel";
+		String hibernate_cfg_xml = request.getSession().getServletContext().getRealPath(JDBCUtil.HIBERNATE_CFG_PATH);//"/WEB-INF/classes/hibernate.cfg.xml");
+		File f = new File(hibernate_cfg_xml);
+		if (f.exists()) {
+			JDBCUtil util = new JDBCUtil(hibernate_cfg_xml);
+			int templateId = util.getTemplateId(selectedStandardReportTemplate);
+
+			System.out.println("templateId: " + templateId);
+			Vector<Integer> reportIds = util.getReportIds(templateId);
+			if (reportIds != null) {
+	             Vector reports = util.getReportData(reportIds, format_description);
+	             System.out.println("Number of excel files: " + reports.size());
+	             if (reports != null) {
+					 int success_knt = 0;
+					 for (int i=0; i<reports.size(); i++) {
+						 ReportMetadata mrd = (ReportMetadata) reports.elementAt(i);
+						 String sourcefile = mrd.getPathName();
+						 if (sourcefile != null) {
+							 System.out.println("sourcefile: " + sourcefile);
+							 ExcelMetadataUtils.updateMetadata(sourcefile, author, keywords, title, subject);
+							 if (worksheet.length() > 0 && frozen_rows.length() > 0) {
+								 int worksheet_number = Integer.parseInt(worksheet);
+								 int frozen_rows_number = Integer.parseInt(frozen_rows);
+								 boolean success = ExcelMetadataUtils.freezeRow(sourcefile, worksheet_number, frozen_rows_number);
+								 if (success) {
+									 success_knt++;
+								 }
+							 }
+						 }
+					 }
+
+					 if (success_knt < reports.size()) {
+						  String msg = "Please verify input values and try again.";
+						  request.getSession().setAttribute("warningMsg", msg);
+						  return "failed";
+					 }
+				 }
+			}
+		}
+        return "success";
+	}
 }
